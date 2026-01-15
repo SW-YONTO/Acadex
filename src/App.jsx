@@ -17,6 +17,7 @@ import NotesPage from '@/pages/NotesPage';
 import DocumentsPage from '@/pages/DocumentsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
+import StudentAnalyticsPage from '@/pages/StudentAnalyticsPage';
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
             <Route path="/notes" element={<NotesPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/student-analytics" element={<StudentAnalyticsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
 

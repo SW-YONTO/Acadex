@@ -34,6 +34,7 @@ const announcementSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   priority: z.enum(['low', 'medium', 'high']),
   targetBatchIds: z.array(z.string()).optional(),
+  expiresInDays: z.string().optional(),
 });
 
 const priorityColors = {
@@ -57,6 +58,7 @@ export default function AnnouncementsPage() {
       message: '',
       priority: 'medium',
       targetBatchIds: [],
+      expiresInDays: '',
     },
   });
 
@@ -87,6 +89,7 @@ export default function AnnouncementsPage() {
       message: '',
       priority: 'medium',
       targetBatchIds: [],
+      expiresInDays: '',
     });
     setIsDialogOpen(true);
   };
@@ -98,6 +101,7 @@ export default function AnnouncementsPage() {
       message: announcement.message,
       priority: announcement.priority,
       targetBatchIds: announcement.targetBatchIds?.map(b => b._id || b) || [],
+      expiresInDays: '',
     });
     setIsDialogOpen(true);
   };
@@ -105,10 +109,18 @@ export default function AnnouncementsPage() {
   const onSubmit = async (data) => {
     setSaving(true);
     try {
+      const payload = { ...data };
+      if (data.expiresInDays && parseInt(data.expiresInDays) > 0) {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + parseInt(data.expiresInDays));
+        payload.expiresAt = expiresAt.toISOString();
+      }
+      delete payload.expiresInDays;
+      
       if (editingAnnouncement) {
-        await announcementsApi.update(editingAnnouncement._id, data);
+        await announcementsApi.update(editingAnnouncement._id, payload);
       } else {
-        await announcementsApi.create(data);
+        await announcementsApi.create(payload);
       }
       setIsDialogOpen(false);
       loadData();
@@ -320,6 +332,31 @@ export default function AnnouncementsPage() {
                             {batch.name}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="expiresInDays"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Duration (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Never expires" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="">Never expires</SelectItem>
+                        <SelectItem value="1">1 day</SelectItem>
+                        <SelectItem value="3">3 days</SelectItem>
+                        <SelectItem value="7">1 week</SelectItem>
+                        <SelectItem value="14">2 weeks</SelectItem>
+                        <SelectItem value="30">1 month</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

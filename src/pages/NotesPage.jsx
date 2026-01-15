@@ -3,8 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import RichTextEditor from '@/components/RichTextEditor';
 import {
   Dialog,
   DialogContent,
@@ -278,7 +278,11 @@ export default function NotesPage() {
                   <FormItem>
                     <FormLabel>Content</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Note content..." rows={6} {...field} />
+                      <RichTextEditor
+                        content={field.value}
+                        onChange={field.onChange}
+                        placeholder="Start writing your note..."
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
