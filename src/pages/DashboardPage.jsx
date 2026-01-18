@@ -118,13 +118,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here's your academy overview.</p>
         </div>
         <div className="flex gap-2">
-          <Button asChild>
+          <Button asChild className="flex-1 sm:flex-none">
             <Link to="/students/new">
               <Plus className="mr-2 h-4 w-4" />
               Add Student
@@ -332,7 +332,7 @@ export default function DashboardPage() {
           <CardDescription>Common tasks you might want to do</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2 md:grid-cols-4">
+          <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
             <Button variant="outline" asChild className="h-auto flex-col gap-2 py-4">
               <Link to="/attendance">
                 <ClipboardCheck className="h-5 w-5" />

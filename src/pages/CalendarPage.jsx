@@ -166,18 +166,18 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Calendar</h1>
           <p className="text-muted-foreground">Manage events and schedules</p>
         </div>
-        <Button onClick={() => openAddDialog(selectedDate)}>
+        <Button onClick={() => openAddDialog(selectedDate)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Event
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_350px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
         {/* Calendar */}
         <Card>
           <CardContent className="p-4">

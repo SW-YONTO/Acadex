@@ -182,12 +182,12 @@ export default function AcademiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Academies & Batches</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Academies & Batches</h1>
           <p className="text-muted-foreground">Manage your academies and their batches</p>
         </div>
-        <Button onClick={openAddAcademyDialog}>
+        <Button onClick={openAddAcademyDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Academy
         </Button>
@@ -209,7 +209,7 @@ export default function AcademiesPage() {
           {academies.map((academy) => (
             <Card key={academy._id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
                       <School className="h-5 w-5 text-primary" />

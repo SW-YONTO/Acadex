@@ -154,7 +154,7 @@ export function AppSidebar() {
     { title: 'Notes', icon: StickyNote, path: '/notes' },
     { title: 'Announcements', icon: Megaphone, path: '/announcements' },
     { title: 'Analytics', icon: BarChart3, path: '/analytics' },
-    { title: 'Student Analytics', icon: Users, path: '/student-analytics' },
+
   ];
 
   return (

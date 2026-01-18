@@ -468,23 +468,25 @@ export default function AttendancePage() {
                   <div
                     key={student._id}
                     onClick={() => !currentDayHoliday && toggleAttendance(student._id)}
-                    className={`flex items-center gap-4 p-3 rounded-lg border transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
                       currentDayHoliday 
                         ? 'opacity-50 cursor-not-allowed' 
                         : 'cursor-pointer hover:bg-muted/50'
                     }`}
                   >
-                    <Avatar>
+                    <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                       <AvatarImage src={student.photo} />
                       <AvatarFallback>{student.name.charAt(0).toUpperCase()}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{student.name}</p>
-                      <p className="text-sm text-muted-foreground">{student.email || student.phone || '-'}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{student.name}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{student.email || student.phone || '-'}</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       {getStatusIcon(attendance[student._id])}
-                      {getStatusBadge(attendance[student._id])}
+                      <span className="hidden sm:inline-block">
+                        {getStatusBadge(attendance[student._id])}
+                      </span>
                     </div>
                   </div>
                 ))}

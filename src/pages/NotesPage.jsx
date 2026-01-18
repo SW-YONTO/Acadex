@@ -149,12 +149,12 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Notes</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Notes</h1>
           <p className="text-muted-foreground">Personal and shared notes</p>
         </div>
-        <Button onClick={openAddDialog}>
+        <Button onClick={openAddDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Note
         </Button>

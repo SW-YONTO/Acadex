@@ -92,7 +92,7 @@ export default function ResultsPage() {
     setLoading(true);
     try {
       const [studentsRes, resultsRes, leaderboardRes] = await Promise.all([
-        studentApi.getAll(selectedBatch),
+        studentApi.getAll({ batchId: selectedBatch }),
         resultsApi.getAll({ batchId: selectedBatch, subject: selectedSubject || undefined }),
         resultsApi.getLeaderboard(selectedBatch, selectedSubject || undefined),
       ]);
@@ -298,7 +298,8 @@ export default function ResultsPage() {
               <CardDescription>Individual test results</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              <div className="overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
@@ -368,7 +369,8 @@ export default function ResultsPage() {
                     })
                   )}
                 </TableBody>
-              </Table>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </>

@@ -22,9 +22,20 @@ import {
   AlertCircle,
   Plus,
   Save,
+  Trash2,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { batchApi, studentApi, syllabusApi, attendanceApi, announcementsApi, weeklyPlansApi } from '@/lib/api';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday } from 'date-fns';
+import { format, startOfWeek, endOfWeek, addDays, isToday } from 'date-fns';
 
 export default function BatchDashboardPage() {
   const { id } = useParams();
@@ -33,9 +44,21 @@ export default function BatchDashboardPage() {
   const [syllabus, setSyllabus] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [attendanceSummary, setAttendanceSummary] = useState({ present: 0, absent: 0, total: 0 });
-  const [weeklyPlan, setWeeklyPlan] = useState({});
+  const [weeklyTopics, setWeeklyTopics] = useState([]);
   const [savingPlan, setSavingPlan] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // For adding new topic
+  const [newTopicDay, setNewTopicDay] = useState('mon');
+  const [newTopicText, setNewTopicText] = useState('');
+
+  const WEEKDAYS = [
+    { key: 'mon', label: 'Monday' },
+    { key: 'tue', label: 'Tuesday' },
+    { key: 'wed', label: 'Wednesday' },
+    { key: 'thu', label: 'Thursday' },
+    { key: 'fri', label: 'Friday' },
+  ];
 
   useEffect(() => {
     if (id) {
@@ -58,7 +81,12 @@ export default function BatchDashboardPage() {
       setStudents(studentsRes.data || []);
       setSyllabus(syllabusRes.data || []);
       setAnnouncements(announcementsRes.data || []);
-      setWeeklyPlan(weeklyPlanRes.data?.dayTopics || {});
+      // Convert dayTopics object to array format
+      const dayTopics = weeklyPlanRes.data?.dayTopics || {};
+      const topicsArray = Object.entries(dayTopics)
+        .filter(([_, text]) => text)
+        .map(([day, text], idx) => ({ id: Date.now() + idx, day, text }));
+      setWeeklyTopics(topicsArray);
 
       // Calculate attendance summary for today
       try {
@@ -97,7 +125,16 @@ export default function BatchDashboardPage() {
     setSavingPlan(true);
     try {
       const weekStartStr = format(weekStart, 'yyyy-MM-dd');
-      await weeklyPlansApi.upsert(id, weekStartStr, { dayTopics: weeklyPlan });
+      // Convert array back to object format (group by day)
+      const dayTopics = {};
+      weeklyTopics.forEach((topic, idx) => {
+        // Use index to make keys unique if multiple topics on same day
+        const key = weeklyTopics.filter(t => t.day === topic.day).length > 1 
+          ? `${topic.day}_${idx}` 
+          : topic.day;
+        dayTopics[key] = topic.text;
+      });
+      await weeklyPlansApi.upsert(id, weekStartStr, { dayTopics });
     } catch (error) {
       console.error('Error saving weekly plan:', error);
     } finally {
@@ -105,14 +142,35 @@ export default function BatchDashboardPage() {
     }
   };
 
+  const addTopic = () => {
+    if (!newTopicText.trim()) return;
+    setWeeklyTopics(prev => [...prev, { id: Date.now(), day: newTopicDay, text: newTopicText }]);
+    setNewTopicText('');
+  };
+
+  const removeTopic = (id) => {
+    setWeeklyTopics(prev => prev.filter(t => t.id !== id));
+  };
+
+  const moveTopic = (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= weeklyTopics.length) return;
+    const newTopics = [...weeklyTopics];
+    [newTopics[index], newTopics[newIndex]] = [newTopics[newIndex], newTopics[index]];
+    setWeeklyTopics(newTopics);
+  };
+
+  const updateTopicDay = (id, newDay) => {
+    setWeeklyTopics(prev => prev.map(t => t.id === id ? { ...t, day: newDay } : t));
+  };
+
   const syllabusProgress = syllabus.length > 0 
     ? Math.round((syllabus.filter(s => s.completed).length / syllabus.length) * 100)
     : 0;
 
-  // Generate weekly plan (current week's dates)
+  // Generate weekly plan (current week's dates - Mon to Fri only)
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  const weekEnd = addDays(weekStart, 4); // Friday
 
   if (loading) {
     return (
@@ -137,14 +195,14 @@ export default function BatchDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" size="icon" asChild>
           <Link to="/academies">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">{batch.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{batch.name}</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             {batch.schedule && (
               <>
@@ -166,7 +224,7 @@ export default function BatchDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Students</CardTitle>
@@ -237,7 +295,7 @@ export default function BatchDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Weekly Plan */}
         <Card>
           <CardHeader>
@@ -258,28 +316,84 @@ export default function BatchDashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {weekDays.map((day) => {
-                const dayKey = format(day, 'EEE').toLowerCase();
-                return (
+            {/* Add new topic */}
+            <div className="flex gap-2 mb-4">
+              <Select value={newTopicDay} onValueChange={setNewTopicDay}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WEEKDAYS.map(day => (
+                    <SelectItem key={day.key} value={day.key}>{day.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Enter topic..."
+                value={newTopicText}
+                onChange={(e) => setNewTopicText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addTopic()}
+                className="flex-1"
+              />
+              <Button onClick={addTopic} size="icon">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Topics list */}
+            <div className="space-y-2">
+              {weeklyTopics.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No topics added yet. Add a topic above.
+                </p>
+              ) : (
+                weeklyTopics.map((topic, index) => (
                   <div
-                    key={day.toISOString()}
-                    className={`flex items-center gap-3 p-2 rounded-lg border ${
-                      isToday(day) ? 'border-primary bg-primary/5' : 'border-border'
-                    }`}
+                    key={topic.id}
+                    className="flex items-center gap-2 p-2 rounded-lg border bg-card group hover:bg-muted/50 transition-colors"
                   >
-                    <div className={`w-12 text-center font-medium ${isToday(day) ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {format(day, 'EEE')}
+                    <div className="flex flex-col">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                        onClick={() => moveTopic(index, -1)}
+                        disabled={index === 0}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                        onClick={() => moveTopic(index, 1)}
+                        disabled={index === weeklyTopics.length - 1}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <Input
-                      placeholder={`Topic for ${format(day, 'EEEE')}`}
-                      value={weeklyPlan[dayKey] || ''}
-                      onChange={(e) => setWeeklyPlan(prev => ({ ...prev, [dayKey]: e.target.value }))}
-                      className="flex-1"
-                    />
+                    <Select value={topic.day} onValueChange={(v) => updateTopicDay(topic.id, v)}>
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEEKDAYS.map(day => (
+                          <SelectItem key={day.key} value={day.key}>{day.label.slice(0, 3)}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="flex-1 text-sm">{topic.text}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100"
+                      onClick={() => removeTopic(topic.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -338,7 +452,7 @@ export default function BatchDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Students List */}
         <Card>
           <CardHeader>

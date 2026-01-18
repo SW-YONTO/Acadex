@@ -40,6 +40,17 @@ const wrapResponse = (data, error) => {
   return { data: Array.isArray(data) ? data.map(toCamelCase) : toCamelCase(data) };
 };
 
+// Helper to clean optional fields (empty string -> null)
+const cleanOptionalFields = (obj, fields) => {
+  const cleaned = { ...obj };
+  fields.forEach(field => {
+    if (cleaned[field] === '' || cleaned[field] === undefined) {
+      cleaned[field] = null;
+    }
+  });
+  return cleaned;
+};
+
 // ===================== AUTH =====================
 export const authApi = {
   login: async (email, password) => {
@@ -310,6 +321,30 @@ export const attendanceApi = {
       .select();
     
     return wrapResponse(data, error);
+  },
+  
+  markSingle: async ({ studentId, batchId, date, status }) => {
+    const dateStr = new Date(date).toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('attendance')
+      .upsert({
+        student_id: studentId,
+        batch_id: batchId,
+        date: dateStr,
+        status: status,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'student_id,batch_id,date' })
+      .select()
+      .single();
+    
+    return wrapResponse(data, error);
+  },
+  
+  delete: async (id) => {
+    const { error } = await supabase.from('attendance').delete().eq('id', id);
+    if (error) throw error;
+    return { data: { success: true } };
   }
 };
 
@@ -380,17 +415,8 @@ export const syllabusApi = {
       .select()
       .single();
     return wrapResponse(data, error);
-  },
-  
-  toggleComplete: async (id, completed) => {
-    const { data, error } = await supabase
-      .from('syllabus')
-      .update({ completed, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    return wrapResponse(data, error);
   }
+  // Note: toggleComplete was removed - use toggle() or update() with { completed: true/false }
 };
 
 // ===================== STUDENT EXITS (Analytics) =====================

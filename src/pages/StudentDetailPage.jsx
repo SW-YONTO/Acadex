@@ -67,6 +67,9 @@ export default function StudentDetailPage() {
   const [isAddResultOpen, setIsAddResultOpen] = useState(false);
   const [newResult, setNewResult] = useState({ testName: '', subject: '', marks: '', totalMarks: '' });
   const [savingResult, setSavingResult] = useState(false);
+  
+  // Attendance edit state
+  const [savingAttendance, setSavingAttendance] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -167,6 +170,56 @@ export default function StudentDetailPage() {
     return record?.status || null;
   };
 
+  const getAttendanceRecordForDate = (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return attendance.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dateStr);
+  };
+
+  const handleAttendanceClick = async (date) => {
+    if (isWeekend(date) || savingAttendance) return;
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existingRecord = getAttendanceRecordForDate(date);
+    const currentStatus = existingRecord?.status || null;
+    
+    // Cycle through: null -> present -> absent -> late -> null
+    const statusCycle = [null, 'present', 'absent', 'late'];
+    const currentIndex = statusCycle.indexOf(currentStatus);
+    const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+    
+    if (!student?.batchIds?.length) return;
+    
+    const batchId = typeof student.batchIds[0] === 'object' 
+      ? student.batchIds[0]._id 
+      : student.batchIds[0];
+    
+    setSavingAttendance(dateStr);
+    try {
+      if (nextStatus === null && existingRecord) {
+        // Remove the attendance record
+        await attendanceApi.delete(existingRecord._id);
+      } else {
+        // Create or update attendance
+        await attendanceApi.markSingle({
+          studentId: id,
+          batchId,
+          date: dateStr,
+          status: nextStatus,
+        });
+      }
+      // Reload attendance
+      const attendanceRes = await attendanceApi.get({
+        studentId: id,
+        batchId: batchId,
+      });
+      setAttendance(attendanceRes.data || []);
+    } catch (error) {
+      console.error('Error updating attendance:', error);
+    } finally {
+      setSavingAttendance(null);
+    }
+  };
+
   const downloadCSV = () => {
     const headers = ['Name', 'Email', 'Phone', 'DOB', 'Guardian', 'Guardian Phone', 'Address', 'Attendance %'];
     const row = [
@@ -232,28 +285,30 @@ export default function StudentDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Student Profile</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Student Profile</h1>
           <p className="text-muted-foreground">View student details and performance</p>
         </div>
-        <Button variant="outline" onClick={downloadCSV}>
-          <Download className="mr-2 h-4 w-4" />
-          Download CSV
-        </Button>
-        <Button variant="outline" onClick={() => setIsAddResultOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Result
-        </Button>
-        <Button asChild>
-          <Link to={`/students?edit=${id}`}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Student
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={downloadCSV} className="flex-1 sm:flex-none">
+            <Download className="mr-2 h-4 w-4" />
+            Download CSV
+          </Button>
+          <Button variant="outline" onClick={() => setIsAddResultOpen(true)} className="flex-1 sm:flex-none">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Result
+          </Button>
+          <Button asChild className="flex-1 sm:flex-none">
+            <Link to={`/students?edit=${id}`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Student
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Profile Card */}
@@ -326,7 +381,7 @@ export default function StudentDetailPage() {
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
@@ -394,12 +449,15 @@ export default function StudentDetailPage() {
               {last30Days.map((date) => {
                 const status = getAttendanceForDate(date);
                 const weekend = isWeekend(date);
+                const dateStr = format(date, 'yyyy-MM-dd');
+                const isSaving = savingAttendance === dateStr;
                 return (
                   <div
                     key={date.toISOString()}
-                    className={`aspect-square rounded-sm flex items-center justify-center text-xs ${
+                    onClick={() => handleAttendanceClick(date)}
+                    className={`aspect-square rounded-sm flex items-center justify-center text-xs cursor-pointer transition-all hover:ring-2 hover:ring-primary/50 ${
                       weekend
-                        ? 'bg-muted/30 text-muted-foreground'
+                        ? 'bg-muted/30 text-muted-foreground cursor-not-allowed hover:ring-0'
                         : status === 'present'
                         ? 'bg-green-500/20 text-green-600'
                         : status === 'absent'
@@ -407,8 +465,8 @@ export default function StudentDetailPage() {
                         : status === 'late'
                         ? 'bg-yellow-500/20 text-yellow-600'
                         : 'bg-muted/50 text-muted-foreground'
-                    }`}
-                    title={`${format(date, 'MMM d')}: ${status || (weekend ? 'Weekend' : 'No record')}`}
+                    } ${isSaving ? 'opacity-50 animate-pulse' : ''}`}
+                    title={`${format(date, 'MMM d')}: ${status || (weekend ? 'Weekend' : 'No record')} - Click to change`}
                   >
                     {format(date, 'd')}
                   </div>

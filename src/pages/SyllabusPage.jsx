@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, GripVertical, Loader2, BookOpen } from 'lucide-react';
+import { Plus, Trash2, GripVertical, Loader2, BookOpen, ChevronUp, ChevronDown, Pencil } from 'lucide-react';
 import { syllabusApi, batchApi } from '@/lib/api';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -154,6 +154,35 @@ export default function SyllabusPage() {
     }
   };
 
+  const handleMoveUp = async (topic, index, topicsInSubject) => {
+    if (index === 0) return;
+    const prevTopic = topicsInSubject[index - 1];
+    try {
+      // Swap sort_order values
+      await Promise.all([
+        syllabusApi.update(topic._id, { sortOrder: prevTopic.sortOrder }),
+        syllabusApi.update(prevTopic._id, { sortOrder: topic.sortOrder }),
+      ]);
+      loadSyllabus();
+    } catch (error) {
+      console.error('Error moving topic:', error);
+    }
+  };
+
+  const handleMoveDown = async (topic, index, topicsInSubject) => {
+    if (index === topicsInSubject.length - 1) return;
+    const nextTopic = topicsInSubject[index + 1];
+    try {
+      await Promise.all([
+        syllabusApi.update(topic._id, { sortOrder: nextTopic.sortOrder }),
+        syllabusApi.update(nextTopic._id, { sortOrder: topic.sortOrder }),
+      ]);
+      loadSyllabus();
+    } catch (error) {
+      console.error('Error moving topic:', error);
+    }
+  };
+
   // Get unique subjects from syllabus
   const subjects = [...new Set(syllabus.map((s) => s.subject))];
   const selectedBatchData = batches.find((b) => b._id === selectedBatch);
@@ -168,12 +197,12 @@ export default function SyllabusPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Syllabus</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Syllabus</h1>
           <p className="text-muted-foreground">Track syllabus progress and topics</p>
         </div>
-        <Button onClick={openAddDialog} disabled={!selectedBatch}>
+        <Button onClick={openAddDialog} disabled={!selectedBatch} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Add Topic
         </Button>
@@ -257,7 +286,7 @@ export default function SyllabusPage() {
                   {topics.map((topic, index) => (
                     <div
                       key={topic._id}
-                      className={`flex items-center gap-4 p-3 rounded-lg border ${
+                      className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border ${
                         topic.completed ? 'bg-muted/30' : ''
                       }`}
                     >
@@ -281,14 +310,35 @@ export default function SyllabusPage() {
                             Due: {format(new Date(topic.dueDate), 'MMM d')}
                           </Badge>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(topic)}>
-                          <GripVertical className="h-4 w-4" />
+                        <div className="flex items-center gap-0.5">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleMoveUp(topic, index, topics)}
+                            disabled={index === 0}
+                            title="Move up"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={() => handleMoveDown(topic, index, topics)}
+                            disabled={index === topics.length - 1}
+                            title="Move down"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(topic)} title="Edit">
+                          <Pencil className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="text-destructive"
                           onClick={() => handleDelete(topic._id)}
+                          title="Delete"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

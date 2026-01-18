@@ -110,13 +110,21 @@ export default function AnnouncementsPage() {
     setSaving(true);
     try {
       const payload = { ...data };
+      
+      // Handle expiration
       if (data.expiresInDays && parseInt(data.expiresInDays) > 0) {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + parseInt(data.expiresInDays));
         payload.expiresAt = expiresAt.toISOString();
+      } else {
+        // Explicitly clear expiration if "Never/Empty" selected
+        payload.expiresAt = null;
       }
+      
       delete payload.expiresInDays;
       
+      console.log('Saving announcement payload:', payload); // Debug log
+
       if (editingAnnouncement) {
         await announcementsApi.update(editingAnnouncement._id, payload);
       } else {
@@ -151,12 +159,12 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Announcements</h1>
-          <p className="text-muted-foreground">Broadcast messages to your batches</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Announcements</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Broadcast messages to your batches</p>
         </div>
-        <Button onClick={openAddDialog}>
+        <Button onClick={openAddDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           New Announcement
         </Button>
@@ -344,14 +352,14 @@ export default function AnnouncementsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Display Duration (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <Select onValueChange={(val) => field.onChange(val === '_never' ? '' : val)} value={field.value || '_never'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Never expires" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Never expires</SelectItem>
+                        <SelectItem value="_never">Never expires</SelectItem>
                         <SelectItem value="1">1 day</SelectItem>
                         <SelectItem value="3">3 days</SelectItem>
                         <SelectItem value="7">1 week</SelectItem>

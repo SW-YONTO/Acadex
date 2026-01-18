@@ -11,9 +11,23 @@ import {
   Moon, 
   Palette, 
   RotateCcw, 
-  Check 
+  Check,
+  Pencil,
+  Download,
+  Bell,
+  Shield,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 // Theme presets - each has light and dark variant
 const colorPresets = [
@@ -70,6 +84,17 @@ export default function SettingsPage() {
   const [activeColorPreset, setActiveColorPreset] = useState(() => {
     return localStorage.getItem('color-preset') || 'default';
   });
+  
+  // Profile edit state
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [editedProfile, setEditedProfile] = useState({ name: '', email: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  
+  // Notification preferences
+  const [notifications, setNotifications] = useState(() => {
+    const saved = localStorage.getItem('notification-prefs');
+    return saved ? JSON.parse(saved) : { email: true, browser: true, attendance: true };
+  });
 
   // Apply theme on mount
   useEffect(() => {
@@ -121,18 +146,68 @@ export default function SettingsPage() {
     applyTheme(false, 'default');
   };
 
+  const openEditProfile = () => {
+    setEditedProfile({
+      name: user?.name || '',
+      email: user?.email || '',
+    });
+    setIsEditProfileOpen(true);
+  };
+
+  const saveProfile = async () => {
+    setSavingProfile(true);
+    // Simulate API call - in real app, call your user update API
+    setTimeout(() => {
+      // Update would happen via API
+      setSavingProfile(false);
+      setIsEditProfileOpen(false);
+    }, 1000);
+  };
+
+  const toggleNotification = (key) => {
+    const newPrefs = { ...notifications, [key]: !notifications[key] };
+    setNotifications(newPrefs);
+    localStorage.setItem('notification-prefs', JSON.stringify(newPrefs));
+  };
+
+  const exportData = async () => {
+    // Export all user data as JSON
+    const data = {
+      user: user,
+      preferences: {
+        theme: isDark ? 'dark' : 'light',
+        colorPreset: activeColorPreset,
+        notifications,
+      },
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'acadex_settings_export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account and preferences</p>
       </div>
 
       {/* Profile Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Profile</CardTitle>
-          <CardDescription>Your account information</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Profile</CardTitle>
+            <CardDescription>Your account information</CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={openEditProfile}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit Profile
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
@@ -154,7 +229,7 @@ export default function SettingsPage() {
       {/* Appearance Section */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="h-5 w-5" />
@@ -266,6 +341,99 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Notifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notifications
+          </CardTitle>
+          <CardDescription>Manage your notification preferences</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div>
+              <Label className="text-base font-medium">Email Notifications</Label>
+              <p className="text-sm text-muted-foreground">Receive email updates about your academy</p>
+            </div>
+            <Switch checked={notifications.email} onCheckedChange={() => toggleNotification('email')} />
+          </div>
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div>
+              <Label className="text-base font-medium">Browser Notifications</Label>
+              <p className="text-sm text-muted-foreground">Get notified in your browser</p>
+            </div>
+            <Switch checked={notifications.browser} onCheckedChange={() => toggleNotification('browser')} />
+          </div>
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div>
+              <Label className="text-base font-medium">Attendance Alerts</Label>
+              <p className="text-sm text-muted-foreground">Get notified about low attendance</p>
+            </div>
+            <Switch checked={notifications.attendance} onCheckedChange={() => toggleNotification('attendance')} />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Data & Privacy */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Data & Privacy
+          </CardTitle>
+          <CardDescription>Manage your data and privacy settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div>
+              <Label className="text-base font-medium">Export Settings</Label>
+              <p className="text-sm text-muted-foreground">Download your settings and preferences as JSON</p>
+            </div>
+            <Button variant="outline" onClick={exportData}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+            <DialogDescription>Update your account information</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={editedProfile.name}
+                onChange={(e) => setEditedProfile(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Your name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={editedProfile.email}
+                onChange={(e) => setEditedProfile(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="your@email.com"
+                type="email"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditProfileOpen(false)}>Cancel</Button>
+            <Button onClick={saveProfile} disabled={savingProfile}>
+              {savingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

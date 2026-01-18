@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Plus, Search, Filter, MoreHorizontal, Pencil, Trash2, Eye, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, MoreHorizontal, Pencil, Trash2, Eye, Loader2, ChevronLeft, ChevronRight, Download, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Checkbox } from '@/components/ui/checkbox';
+import { format } from 'date-fns';
 
 const studentSchema = z.object({
   name: z.string().min(2, 'Name is required'),
@@ -76,6 +78,10 @@ export default function StudentsPage() {
   const [exitType, setExitType] = useState('left');
   const [exitReason, setExitReason] = useState('');
   const [deleting, setDeleting] = useState(false);
+  
+  // Multi-select state
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(studentSchema),
@@ -229,6 +235,69 @@ export default function StudentsPage() {
     }
   };
 
+  // Multi-select handlers
+  const toggleSelectStudent = (studentId) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.length === filteredStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredStudents.map(s => s._id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedStudents.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedStudents.length} student(s)? This action cannot be undone.`)) return;
+    
+    setDeleting(true);
+    try {
+      await Promise.all(selectedStudents.map(id => studentApi.delete(id)));
+      setSelectedStudents([]);
+      setIsSelectionMode(false);
+      loadData();
+    } catch (error) {
+      console.error('Error bulk deleting students:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const downloadCSV = () => {
+    const headers = ['Name', 'Email', 'Phone', 'DOB', 'Guardian', 'Guardian Phone', 'Address', 'Batches'];
+    const rows = filteredStudents
+      .filter(s => selectedStudents.length === 0 || selectedStudents.includes(s._id))
+      .map(s => [
+        s.name || '',
+        s.email || '',
+        s.phone || '',
+        s.dob ? format(new Date(s.dob), 'yyyy-MM-dd') : '',
+        s.guardianName || '',
+        s.guardianPhone || '',
+        s.address || '',
+        s.batchIds?.map(b => b.name || 'Unknown').join('; ') || '',
+      ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(v => `"${v}"`).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `students_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -240,6 +309,33 @@ export default function StudentsPage() {
           <Plus className="mr-2 h-4 w-4" />
           Add Student
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Menu className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={downloadCSV}>
+              <Download className="mr-2 h-4 w-4" />
+              Download CSV{selectedStudents.length > 0 ? ` (${selectedStudents.length})` : ''}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setIsSelectionMode(!isSelectionMode)}>
+              <Filter className="mr-2 h-4 w-4" />
+              {isSelectionMode ? 'Exit Selection' : 'Multi-Select'}
+            </DropdownMenuItem>
+            {isSelectionMode && selectedStudents.length > 0 && (
+              <DropdownMenuItem 
+                onClick={handleBulkDelete}
+                className="text-destructive"
+                disabled={deleting}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Selected ({selectedStudents.length})
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Filters */}
@@ -296,106 +392,124 @@ export default function StudentsPage() {
       {/* Students Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead>Guardian</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  </TableCell>
+                  {isSelectionMode && (
+                    <TableHead className="w-12">
+                      <Checkbox 
+                        checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
+                  )}
+                  <TableHead>Student</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Batch</TableHead>
+                  <TableHead>Guardian</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-              ) : filteredStudents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    No students found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredStudents.map((student) => (
-                  <TableRow 
-                    key={student._id} 
-                    className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => window.location.href = `/students/${student._id}`}
-                  >
-                    <TableCell>
-                      <Link 
-                        to={`/students/${student._id}`} 
-                        className="flex items-center gap-3"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Avatar>
-                          <AvatarImage src={student.photo} />
-                          <AvatarFallback>
-                            {student.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium hover:text-primary transition-colors">{student.name}</p>
-                          <p className="text-sm text-muted-foreground">{student.email}</p>
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm">{student.phone || '-'}</p>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {student.batchIds?.map((batch) => (
-                          <Badge key={batch._id || batch} variant="outline">
-                            {batch.name || 'Unknown'}
-                          </Badge>
-                        ))}
-                        {(!student.batchIds || student.batchIds.length === 0) && (
-                          <span className="text-muted-foreground text-sm">No batch</span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <p className="text-sm">{student.guardianName || '-'}</p>
-                      <p className="text-xs text-muted-foreground">{student.guardianPhone}</p>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link to={`/students/${student._id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditDialog(student)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => openExitDialog(student)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Remove Student
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={isSelectionMode ? 6 : 5} className="text-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : filteredStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isSelectionMode ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                      No students found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredStudents.map((student) => (
+                    <TableRow 
+                      key={student._id} 
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${selectedStudents.includes(student._id) ? 'bg-primary/5' : ''}`}
+                      onClick={() => isSelectionMode ? toggleSelectStudent(student._id) : (window.location.href = `/students/${student._id}`)}
+                    >
+                      {isSelectionMode && (
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox 
+                            checked={selectedStudents.includes(student._id)}
+                            onCheckedChange={() => toggleSelectStudent(student._id)}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Link 
+                          to={`/students/${student._id}`} 
+                          className="flex items-center gap-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Avatar>
+                            <AvatarImage src={student.photo} />
+                            <AvatarFallback>
+                              {student.name.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium hover:text-primary transition-colors">{student.name}</p>
+                            <p className="text-sm text-muted-foreground">{student.email}</p>
+                          </div>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">{student.phone || '-'}</p>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {student.batchIds?.map((batch) => (
+                            <Badge key={batch._id || batch} variant="outline">
+                              {batch.name || 'Unknown'}
+                            </Badge>
+                          ))}
+                          {(!student.batchIds || student.batchIds.length === 0) && (
+                            <span className="text-muted-foreground text-sm">No batch</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">{student.guardianName || '-'}</p>
+                        <p className="text-xs text-muted-foreground">{student.guardianPhone}</p>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/students/${student._id}`}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(student)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openExitDialog(student)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Remove Student
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
